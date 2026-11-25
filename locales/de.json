@@ -1,0 +1,11 @@
+{
+  "common": { "loading": "Wird geladen...", "save": "Speichern", "cancel": "Abbrechen", "delete": "Löschen", "edit": "Bearbeiten", "search": "Suchen", "export": "Exportieren", "import": "Importieren" },
+  "auth": { "signIn": "Anmelden", "signUp": "Registrieren", "forgotPassword": "Passwort vergessen?", "email": "E-Mail", "password": "Passwort", "welcomeBack": "Willkommen zurück" },
+  "dashboard": { "title": "Dashboard" },
+  "jobs": { "title": "Stellen" },
+  "candidates": { "title": "Kandidaten" },
+  "pipeline": { "title": "Pipeline" },
+  "assessments": { "title": "Bewertungen", "start": "Starten", "submitAssessment": "Einreichen" },
+  "notifications": { "title": "Benachrichtigungen" },
+  "settings": { "title": "Einstellungen" }
+}

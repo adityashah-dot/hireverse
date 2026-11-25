@@ -1,0 +1,574 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ============================================
+// COMPANY & USER MANAGEMENT
+// ============================================
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  logo      String?
+  website   String?
+  industry  String?
+  size      String?
+
+  users     User[]
+  jobs      Job[]
+  settings  CompanySettings?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model CompanySettings {
+  id        String  @id @default(cuid())
+  companyId String  @unique
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  defaultAssessmentDuration   Int     @default(60)
+  assessmentLinkExpiryDays    Int     @default(1)
+  passingScore                Int     @default(70)
+
+  senderName                  String  @default("HireVerse Team")
+  replyToEmail                String?
+  includeLogoInEmails         Boolean @default(true)
+
+  notifyOnNewApplication      Boolean @default(true)
+  notifyOnAssessmentComplete  Boolean @default(true)
+  weeklyReportEnabled         Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  avatar       String?
+  role         UserRole @default(RECRUITER)
+
+  companyId    String
+  company      Company  @relation(fields: [companyId], references: [id])
+
+  jobsCreated  Job[]         @relation("CreatedBy")
+  notes        Note[]
+  activities   ActivityLog[]
+  interviews   InterviewFeedback[]
+  passwordResetToken PasswordResetToken?
+
+  emailVerified     DateTime?
+  lastLoginAt       DateTime?
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([companyId])
+  @@index([email])
+}
+
+enum UserRole {
+  ADMIN
+  HIRING_MANAGER
+  RECRUITER
+  INTERVIEWER
+  VIEWER
+}
+
+// ============================================
+// JOB MANAGEMENT
+// ============================================
+
+model Job {
+  id               String         @id @default(cuid())
+  title            String
+  slug             String         @unique
+  applicationCode  String         @unique @default(cuid())
+  description      String         @db.Text
+  requirements     String[]
+  responsibilities String[]
+  skills           String[]
+
+  department      String
+  location        String
+  locationType    LocationType    @default(HYBRID)
+  employmentType  EmploymentType  @default(FULL_TIME)
+  experienceLevel ExperienceLevel @default(MID)
+  salaryMin       Int?
+  salaryMax       Int?
+  salaryCurrency  String          @default("USD")
+
+  status          JobStatus       @default(DRAFT)
+  isRemote        Boolean         @default(false)
+  applicationDeadline DateTime?
+
+  companyId       String
+  company         Company         @relation(fields: [companyId], references: [id])
+  createdById     String
+  createdBy       User            @relation("CreatedBy", fields: [createdById], references: [id])
+
+  candidates      Candidate[]
+  questions       Question[]
+  assessments     Assessment[]
+
+  totalApplications Int           @default(0)
+  totalHired        Int           @default(0)
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  publishedAt     DateTime?
+  closedAt        DateTime?
+
+  @@index([companyId])
+  @@index([status])
+  @@index([applicationCode])
+  @@index([createdAt])
+}
+
+enum JobStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  CLOSED
+  ARCHIVED
+}
+
+enum LocationType {
+  ONSITE
+  REMOTE
+  HYBRID
+}
+
+enum EmploymentType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+  FREELANCE
+}
+
+enum ExperienceLevel {
+  ENTRY
+  MID
+  SENIOR
+  LEAD
+  EXECUTIVE
+}
+
+// ============================================
+// CANDIDATE MANAGEMENT
+// ============================================
+
+model Candidate {
+  id          String  @id @default(cuid())
+
+  email       String
+  name        String
+  phone       String?
+  linkedIn    String?
+  portfolio   String?
+  location    String?
+
+  resumeUrl   String?
+  resumeText  String? @db.Text
+  resumeParsed Json?
+
+  aiSummary      String?  @db.Text
+  skillMatch     Int?
+  matchingSkills String[]
+  missingSkills  String[]
+
+  aiReviewed    Boolean  @default(false)
+  aiReviewNotes String?  @db.Text
+
+  stage       CandidateStage @default(APPLIED)
+  rating      Int?
+
+  jobId       String
+  job         Job     @relation(fields: [jobId], references: [id])
+
+  assessments  Assessment[]
+  notes        Note[]
+  activities   ActivityLog[]
+  education    Education[]
+  experience   WorkExperience[]
+  interviews   Interview[]
+
+  source      String?
+  referredBy  String?
+
+  isArchived  Boolean  @default(false)
+  rejectionReason String?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  appliedAt   DateTime @default(now())
+
+  @@unique([email, jobId])
+  @@index([jobId])
+  @@index([stage])
+  @@index([skillMatch])
+  @@index([createdAt])
+  @@index([jobId, stage])
+  @@index([isArchived, createdAt])
+}
+
+model Education {
+  id          String    @id @default(cuid())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  institution String
+  degree      String
+  field       String?
+  startDate   DateTime?
+  endDate     DateTime?
+  gpa         Float?
+
+  @@index([candidateId])
+}
+
+model WorkExperience {
+  id          String    @id @default(cuid())
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  company     String
+  title       String
+  location    String?
+  startDate   DateTime?
+  endDate     DateTime?
+  isCurrent   Boolean   @default(false)
+  description String?   @db.Text
+
+  @@index([candidateId])
+}
+
+enum CandidateStage {
+  APPLIED
+  SCREENING
+  SHORTLISTED
+  ASSESSMENT_SENT
+  ASSESSMENT_DONE
+  INTERVIEW
+  OFFER
+  HIRED
+  REJECTED
+}
+
+// ============================================
+// ASSESSMENT SYSTEM
+// ============================================
+
+model Question {
+  id            String             @id @default(cuid())
+
+  text          String             @db.Text
+  options       String[]
+  correctAnswer Int
+  explanation   String?            @db.Text
+
+  category      String
+  difficulty    QuestionDifficulty @default(MEDIUM)
+  timeLimit     Int?
+
+  jobId         String?
+  job           Job?               @relation(fields: [jobId], references: [id], onDelete: SetNull)
+  isGlobal      Boolean            @default(false)
+  isAiGenerated Boolean            @default(true)
+
+  timesUsed     Int                @default(0)
+  avgCorrectRate Float?
+
+  responses     Response[]
+
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([jobId])
+  @@index([category])
+  @@index([difficulty])
+}
+
+enum QuestionDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
+model Assessment {
+  id           String           @id @default(cuid())
+  sessionToken String           @unique
+
+  candidateId  String
+  candidate    Candidate        @relation(fields: [candidateId], references: [id])
+  jobId        String
+  job          Job              @relation(fields: [jobId], references: [id])
+
+  questionIds  String[]
+  questionCount Int             @default(20)
+  duration     Int              @default(60)
+
+  status       AssessmentStatus @default(PENDING)
+  score        Int?
+  totalCorrect Int?
+  topicScores  Json?
+
+  expiresAt    DateTime
+  sentAt       DateTime         @default(now())
+  startedAt    DateTime?
+  completedAt  DateTime?
+
+  ipAddress          String?
+  userAgent          String?
+  browserFingerprint String?
+  tabSwitchCount     Int     @default(0)
+
+  responses    Response[]
+
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([candidateId])
+  @@index([jobId])
+  @@index([status])
+  @@index([sessionToken])
+  @@index([expiresAt])
+  @@index([candidateId, status])
+  @@index([jobId, status, createdAt])
+}
+
+enum AssessmentStatus {
+  PREPARING
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  EXPIRED
+  CANCELLED
+}
+
+model Response {
+  id           String     @id @default(cuid())
+
+  assessmentId String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  questionId   String
+  question     Question   @relation(fields: [questionId], references: [id])
+
+  selectedAnswer Int?
+  isCorrect      Boolean?
+  timeTaken      Int?
+
+  answeredAt     DateTime @default(now())
+
+  @@unique([assessmentId, questionId])
+  @@index([assessmentId])
+}
+
+// ============================================
+// INTERVIEWS
+// ============================================
+
+model Interview {
+  id          String          @id @default(cuid())
+
+  candidateId String
+  candidate   Candidate       @relation(fields: [candidateId], references: [id])
+  jobId       String
+
+  title       String
+  type        InterviewType
+
+  scheduledAt DateTime
+  duration    Int             @default(60)
+  timezone    String          @default("UTC")
+
+  meetingLink String?
+  location    String?
+
+  interviewerIds String[]
+
+  status      InterviewStatus @default(SCHEDULED)
+
+  feedbacks   InterviewFeedback[]
+  aiSession   AIInterviewSession?
+
+  notes       String?         @db.Text
+
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([candidateId])
+  @@index([scheduledAt])
+  @@index([status])
+  @@index([scheduledAt, status])
+}
+
+model AIInterviewSession {
+  id                String    @id @default(cuid())
+
+  // Link to HireVerse Interview record
+  interviewId       String    @unique
+  interview         Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+
+  // Python microservice session ID
+  pySessionId       String    @unique
+
+  // Candidate info snapshot
+  candidateName     String
+  candidateEmail    String
+  position          String
+
+  // Results from AI interview
+  finalScore        Float?
+  passRate          Float?
+  overallStatus     String?   // "Excellent" | "Good" | "Fair" | "Needs Improvement"
+  questionsAnswered Int       @default(0)
+  questionsPassed   Int       @default(0)
+
+  // Detailed Q&A transcripts (array of {question, answer, score, feedback})
+  transcripts       Json?
+
+  // Anti-cheat / attention tracking
+  attentionScore    Float?
+  violations        Json?     // array of {type, timestamp}
+
+  status            String    @default("pending") // pending | completed | failed
+
+  startedAt         DateTime?
+  completedAt       DateTime?
+
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([interviewId])
+  @@index([candidateEmail])
+  @@index([status])
+}
+
+model InterviewFeedback {
+  id          String    @id @default(cuid())
+
+  interviewId String
+  interview   Interview @relation(fields: [interviewId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id])
+
+  rating      Int?
+  notes       String?   @db.Text
+  recommendation String?
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([interviewId, authorId])
+  @@index([interviewId])
+}
+
+enum InterviewType {
+  PHONE_SCREEN
+  VIDEO
+  ONSITE
+  TECHNICAL
+  BEHAVIORAL
+  FINAL
+  AI_VOICE   // AI-powered voice interview (camera + mic)
+}
+
+enum InterviewStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+// ============================================
+// COLLABORATION & ACTIVITY
+// ============================================
+
+model Note {
+  id          String    @id @default(cuid())
+  content     String    @db.Text
+
+  candidateId String
+  candidate   Candidate @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User      @relation(fields: [authorId], references: [id])
+
+  isPrivate   Boolean   @default(false)
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([candidateId])
+}
+
+model ActivityLog {
+  id          String     @id @default(cuid())
+
+  action      String
+  details     Json?
+
+  candidateId String?
+  candidate   Candidate? @relation(fields: [candidateId], references: [id], onDelete: SetNull)
+  userId      String?
+  user        User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  createdAt   DateTime   @default(now())
+
+  @@index([candidateId])
+  @@index([createdAt])
+  @@index([candidateId, createdAt])
+}
+
+// ============================================
+// EMAIL TEMPLATES
+// ============================================
+
+model EmailTemplate {
+  id        String   @id @default(cuid())
+
+  name      String
+  subject   String
+  body      String   @db.Text
+  variables String[]
+  category  String
+
+  isDefault  Boolean @default(false)
+  usageCount Int     @default(0)
+
+  companyId  String?
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([category])
+  @@index([companyId])
+}
+
+// ============================================
+// AUTH TOKENS
+// ============================================
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+}
