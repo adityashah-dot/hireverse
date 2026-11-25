@@ -60,7 +60,7 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       })
     }
 
-    revalidateTag(`dashboard-analytics-${user.companyId}`)
+    (revalidateTag as any)(`dashboard-analytics-${user.companyId}`)
 
     return NextResponse.json({ data: candidate })
   } catch (error) {

@@ -137,8 +137,8 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    revalidateTag(`candidates-${user.companyId}`)
-    revalidateTag(`dashboard-analytics-${user.companyId}`)
+    (revalidateTag as any)(`candidates-${user.companyId}`)
+    (revalidateTag as any)(`dashboard-analytics-${user.companyId}`)
     return NextResponse.json({ data: candidate }, { status: 201 })
   } catch (error) {
     if (error instanceof z.ZodError) {

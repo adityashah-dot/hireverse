@@ -98,8 +98,8 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
       data,
     })
 
-    revalidateTag(`candidate-${id}`)
-    revalidateTag(`candidates-${user.companyId}`)
+    (revalidateTag as any)(`candidate-${id}`)
+    (revalidateTag as any)(`candidates-${user.companyId}`)
     return NextResponse.json({ data: candidate })
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -126,8 +126,8 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       data: { isArchived: true },
     })
 
-    revalidateTag(`candidate-${id}`)
-    revalidateTag(`candidates-${user.companyId}`)
+    (revalidateTag as any)(`candidate-${id}`)
+    (revalidateTag as any)(`candidates-${user.companyId}`)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Archive candidate error:', error)

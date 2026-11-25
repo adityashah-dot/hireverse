@@ -112,8 +112,8 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    revalidateTag(`jobs-${user.companyId}`)
-    revalidateTag(`dashboard-analytics-${user.companyId}`)
+    (revalidateTag as any)(`jobs-${user.companyId}`)
+    (revalidateTag as any)(`dashboard-analytics-${user.companyId}`)
     return NextResponse.json(
       {
         data: job,
